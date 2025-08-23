@@ -61,6 +61,7 @@ tab1, tab2, tab3 = st.tabs(["🔮 Prediction", "📊 Model Insights", "📈 Perf
 # -----------------------------
 # TAB 1: PREDICTION
 # -----------------------------
+
 with tab1:
     st.subheader("Enter Candidate Details")
 
@@ -87,11 +88,17 @@ with tab2:
 
     if model:
         importance = model.feature_importance()
-        feature_names = ["Age", "Experience", "Education"]
-        fi_df = pd.DataFrame({"Feature": feature_names, "Importance": importance})
+        feature_names = model.feature_name()   # <-- Dynamically fetch names
 
-        fig, ax = plt.subplots(figsize=(6,4))
-        sns.barplot(x="Importance", y="Feature", data=fi_df, palette="viridis", ax=ax)
+        fi_df = pd.DataFrame({
+            "Feature": feature_names,
+            "Importance": importance
+        }).sort_values(by="Importance", ascending=True)
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.barh(fi_df["Feature"], fi_df["Importance"], color="skyblue")
+        ax.set_xlabel("Importance")
+        ax.set_title("Feature Importance")
         st.pyplot(fig)
 
 # -----------------------------
@@ -101,14 +108,12 @@ with tab3:
     st.subheader("📈 Model Performance")
 
     if df is not None:
-        # Assuming dataset has 'salary' column
-        features = df[["Age", "Experience", "Education"]].copy()
-        features["Education"] = features["Education"].map({"Bachelor":0, "Master":1, "PhD":2})
+        features = df.drop(columns=["Salary"])  # <-- dynamically use all features
         true_vals = df["Salary"]
         preds = model.predict(features)
 
         fig, ax = plt.subplots(figsize=(6,6))
-        sns.scatterplot(x=true_vals, y=preds, alpha=0.6, ax=ax)
+        ax.scatter(true_vals, preds, alpha=0.6, color="orange", edgecolors="k")
         ax.set_xlabel("True Salary")
         ax.set_ylabel("Predicted Salary")
         ax.set_title("True vs Predicted Salaries")
