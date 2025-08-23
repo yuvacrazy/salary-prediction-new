@@ -1,141 +1,118 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from catboost import CatBoostRegressor  # ✅ CatBoost instead of LightGBM
 
-# Load model
-model = joblib.load("salary_prediction_model.pkl")
+# -------------------------
+# Load Model Safely
+# -------------------------
+try:
+    model = joblib.load("salary_prediction_model.pkl")
+except Exception as e:
+    st.error(f"⚠️ Error loading model: {e}")
+    st.stop()
 
-# Page Config
-st.set_page_config(page_title="💼 Salary Predictor", page_icon="💰", layout="wide")
+# -------------------------
+# Page Configuration
+# -------------------------
+st.set_page_config(page_title="Salary Prediction App", page_icon="💰", layout="wide")
 
-# Custom CSS
 st.markdown(
     """
     <style>
-    body {
-        background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    .stApp {
-        background: linear-gradient(120deg, #dfe9f3 0%, #ffffff 100%);
-    }
-    .title {
-        text-align: center;
-        font-size: 38px;
-        font-weight: bold;
-        color: #2c3e50;
-        margin-bottom: 15px;
-    }
-    .subtitle {
-        text-align: center;
-        font-size: 18px;
-        color: #7f8c8d;
-        margin-bottom: 30px;
-    }
-    .input-card {
-        background: white;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-    }
+        body {
+            background: linear-gradient(135deg, #2c3e50, #4ca1af);
+            color: #fff;
+        }
+        .salary-card {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+        }
+        h1, h2, h3 {
+            color: #f8f9fa !important;
+        }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# Title
-st.markdown("<div class='title'>💼 Salary Prediction App</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Predict salaries and explore model insights</div>", unsafe_allow_html=True)
+st.title("💼 Salary Prediction App (CatBoost)")
+st.markdown("Predict employee salaries based on job and experience features.")
 
+# -------------------------
 # Sidebar Inputs
-st.sidebar.header("📊 Enter Features")
-with st.sidebar:
-    st.markdown("<div class='input-card'>", unsafe_allow_html=True)
-    user_input = {
-        "experience_level": st.selectbox("Experience Level", ["EN", "MI", "SE", "EX"]),
-        "employment_type": st.selectbox("Employment Type", ["FT", "PT", "CT", "FL"]),
-        "job_title": st.text_input("Job Title", "Data Scientist"),
-        "company_size": st.selectbox("Company Size", ["S", "M", "L"]),
-        "remote_ratio": st.slider("Remote Ratio (%)", 0, 100, 50),
-        "company_location": st.text_input("Company Location", "US"),
-        "employee_residence": st.text_input("Employee Residence", "US"),
+# -------------------------
+st.sidebar.header("User Input Features")
+
+def user_input_features():
+    work_year = st.sidebar.slider("Work Year", 2015, 2025, 2023)
+    experience_level = st.sidebar.selectbox("Experience Level", ["EN", "MI", "SE", "EX"])
+    employment_type = st.sidebar.selectbox("Employment Type", ["FT", "PT", "CT", "FL"])
+    job_title = st.sidebar.text_input("Job Title", "Data Scientist")
+    remote_ratio = st.sidebar.slider("Remote Ratio (%)", 0, 100, 50)
+    company_size = st.sidebar.selectbox("Company Size", ["S", "M", "L"])
+    company_location = st.sidebar.text_input("Company Location", "US")
+    employee_residence = st.sidebar.text_input("Employee Residence", "US")
+
+    data = {
+        "work_year": work_year,
+        "experience_level": experience_level,
+        "employment_type": employment_type,
+        "job_title": job_title,
+        "remote_ratio": remote_ratio,
+        "company_size": company_size,
+        "company_location": company_location,
+        "employee_residence": employee_residence,
     }
-    st.markdown("</div>", unsafe_allow_html=True)
+    return data
 
-# Tabs
-tab1, tab2, tab3 = st.tabs(["🔮 Prediction", "📈 Analytics", "ℹ️ About Model"])
+user_input = user_input_features()
 
-with tab1:
-    st.header("🔮 Salary Prediction")
-    if st.button("🚀 Predict Salary"):
-        input_df = pd.DataFrame([user_input])
+# -------------------------
+# Prediction
+# -------------------------
+if st.button("Predict Salary"):
+    input_df = pd.DataFrame([user_input])
+    try:
         preds = model.predict(input_df)
-        predicted_salary = f"${preds[0]:,.2f}"
-
-        # Result Card
         st.markdown(
             f"""
-            <div style="
-                background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-                padding: 25px;
-                border-radius: 15px;
-                text-align: center;
-                box-shadow: 0px 6px 15px rgba(0,0,0,0.25);
-                margin-top: 20px;">
-                <h2 style="color: white; font-size: 28px; margin: 0;">💰 Predicted Salary (USD)</h2>
-                <h1 style="color: #fff; font-size: 46px; margin: 10px 0;">{predicted_salary}</h1>
+            <div class="salary-card">
+                💰 Predicted Salary (USD): ${preds[0]:,.2f}
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
+    except Exception as e:
+        st.error(f"⚠️ Prediction failed: {e}")
 
-        st.balloons()
-        st.snow()
+# -------------------------
+# Feature Importance
+# -------------------------
+st.subheader("📊 Feature Importance")
 
-with tab2:
-    st.header("📊 Analytics & Insights")
+try:
+    df = pd.read_csv("clean_salary_dataset.csv")
+    features = df.drop(columns=["salary_in_usd"])
 
-    input_df = pd.DataFrame([user_input])
-    preds = model.predict(input_df)
+    importance = model.get_feature_importance()
+    feature_names = features.columns
 
-    # 📈 Scatter Plot
-    st.subheader("Salary Distribution (Sample)")
-    fig, ax = plt.subplots()
-    sns.scatterplot(x=[i for i in range(len(input_df.columns))],
-                    y=[preds[0] for _ in range(len(input_df.columns))],
-                    s=120, color="blue", ax=ax)
-    ax.set_title("Predicted Salary Scatter Plot")
-    ax.set_xlabel("Features")
-    ax.set_ylabel("Predicted Salary")
+    fi_df = pd.DataFrame({"Feature": feature_names, "Importance": importance})
+    fi_df = fi_df.sort_values(by="Importance", ascending=False)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sns.barplot(x="Importance", y="Feature", data=fi_df, ax=ax, palette="viridis")
     st.pyplot(fig)
 
-    # 🔑 Feature Importance
-    if hasattr(model, "feature_importances_"):
-        st.subheader("🔑 Feature Importance")
-        importance = model.feature_importances_
-        features = list(input_df.columns)
-        fi_df = pd.DataFrame({"Feature": features, "Importance": importance})
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        sns.barplot(x="Importance", y="Feature", data=fi_df, palette="coolwarm", ax=ax)
-        ax.set_title("Feature Importance")
-        st.pyplot(fig)
-
-with tab3:
-    st.header("ℹ️ About the Model")
-    st.markdown(
-        """
-        ### 🧠 Model Information
-        - **Algorithm**: Gradient Boosting (LightGBM / Random Forest based)  
-        - **Goal**: Predict salaries based on features such as experience level, employment type, job title, company size, location, and remote ratio.  
-        - **Dataset**: Trained on a cleaned salary dataset.  
-        - **Feature Engineering**: Categorical encoding + scaling applied.  
-
-        ### 📌 Notes
-        - Predictions are estimates based on historical patterns.  
-        - Actual salaries may vary depending on negotiation, company budget, and market conditions.  
-        """
-    )
+except Exception as e:
+    st.warning(f"Feature importance not available: {e}")
