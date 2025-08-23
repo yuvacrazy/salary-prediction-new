@@ -1,133 +1,117 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import lightgbm as lgb
+import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# -----------------------------
-# PAGE CONFIG & STYLING
-# -----------------------------
-st.set_page_config(page_title="Salary Prediction App", layout="wide")
+# Load model
+model = joblib.load("salary_prediction_model.pkl")
 
+# Page Config
+st.set_page_config(page_title="💼 Salary Predictor", page_icon="💰", layout="wide")
+
+# Custom CSS for professional UI
 st.markdown(
     """
     <style>
     body {
-        background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
-        color: white;
-        font-family: 'Segoe UI', sans-serif;
+        background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    .big-font {
-        font-size:32px !important;
+    .stApp {
+        background: linear-gradient(120deg, #dfe9f3 0%, #ffffff 100%);
+    }
+    .title {
+        text-align: center;
+        font-size: 38px;
         font-weight: bold;
-        color: #FFD700;
+        color: #2c3e50;
+        margin-bottom: 15px;
     }
-    .stButton>button {
-        background: linear-gradient(90deg, #36D1DC, #5B86E5);
-        color: white;
-        border-radius: 12px;
-        padding: 0.6em 1.2em;
-        font-weight: bold;
-        transition: 0.3s;
+    .subtitle {
+        text-align: center;
+        font-size: 18px;
+        color: #7f8c8d;
+        margin-bottom: 30px;
     }
-    .stButton>button:hover {
-        transform: scale(1.05);
-        background: linear-gradient(90deg, #5B86E5, #36D1DC);
+    .input-card {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# -----------------------------
-# LOAD MODEL & DATA
-# -----------------------------
-model = lgb.Booster(model_file="salary_prediction_model.txt")
+# Title
+st.markdown("<div class='title'>💼 Salary Prediction App</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Predict your salary based on job-related features using Machine Learning (LightGBM)</div>", unsafe_allow_html=True)
 
-# Load dataset (optional for plots)
-try:
-    df = pd.read_csv("clean_salary_dataset.csv")
-except:
-    df = None
+# Sidebar Inputs
+st.sidebar.header("📊 Enter Features")
 
-# -----------------------------
-# MAIN APP
-# -----------------------------
-st.markdown("<p class='big-font'>💼 AI-Powered Salary Prediction</p>", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("<div class='input-card'>", unsafe_allow_html=True)
+    user_input = {
+        "experience_level": st.selectbox("Experience Level", ["EN", "MI", "SE", "EX"]),
+        "employment_type": st.selectbox("Employment Type", ["FT", "PT", "CT", "FL"]),
+        "job_title": st.text_input("Job Title", "Data Scientist"),
+        "company_size": st.selectbox("Company Size", ["S", "M", "L"]),
+        "remote_ratio": st.slider("Remote Ratio (%)", 0, 100, 50),
+        "company_location": st.text_input("Company Location", "US"),
+        "employee_residence": st.text_input("Employee Residence", "US"),
+    }
+    st.markdown("</div>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🔮 Prediction", "📊 Model Insights", "📈 Performance"])
+# Prediction Section
+if st.button("🚀 Predict Salary"):
+    input_df = pd.DataFrame([user_input])
+    preds = model.predict(input_df)
+    predicted_salary = f"${preds[0]:,.2f}"
 
-# -----------------------------
-# TAB 1: PREDICTION
-# -----------------------------
+    # Result Card
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0px 6px 15px rgba(0,0,0,0.25);
+            margin-top: 20px;">
+            <h2 style="color: white; font-size: 28px; margin: 0;">💰 Predicted Salary (USD)</h2>
+            <h1 style="color: #fff; font-size: 46px; margin: 10px 0;">{predicted_salary}</h1>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-with tab1:
-    st.subheader("Enter Candidate Details")
+    # 🎉 Animations
+    st.balloons()
+    st.snow()
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        age = st.number_input("Age", min_value=18, max_value=70, value=30)
-    with col2:
-        exp = st.number_input("Years of Experience", min_value=0, max_value=50, value=5)
-    with col3:
-        edu = st.selectbox("Education Level", ["Bachelor", "Master", "PhD"])
+    # 📈 Scatter Plot
+    st.subheader("📈 Salary Distribution (Sample)")
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=[i for i in range(len(input_df.columns))],
+                    y=[preds[0] for _ in range(len(input_df.columns))],
+                    s=120, color="blue", ax=ax)
+    ax.set_title("Predicted Salary Scatter Plot")
+    ax.set_xlabel("Features")
+    ax.set_ylabel("Predicted Salary")
+    st.pyplot(fig)
 
-    education_map = {"Bachelor": 0, "Master": 1, "PhD": 2}
+    # 🔑 Feature Importance
+    if hasattr(model, "feature_importances_"):
+        st.subheader("🔑 Feature Importance")
+        importance = model.feature_importances_
+        features = list(input_df.columns)
+        fi_df = pd.DataFrame({"Feature": features, "Importance": importance})
 
-    if st.button("💰 Predict Salary"):
-        X_new = np.array([[age, exp, education_map[edu]]])
-        pred = model.predict(X_new)
-        st.success(f"Estimated Salary: **${pred[0]:,.2f}**")
-
-# -----------------------------
-# TAB 2: FEATURE IMPORTANCE
-# -----------------------------
-with tab2:
-    st.subheader("🔍 Feature Importance")
-
-    if model:
-        importance = model.feature_importance()
-        feature_names = model.feature_name()   # <-- Dynamically fetch names
-
-        fi_df = pd.DataFrame({
-            "Feature": feature_names,
-            "Importance": importance
-        }).sort_values(by="Importance", ascending=True)
-
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.barh(fi_df["Feature"], fi_df["Importance"], color="skyblue")
-        ax.set_xlabel("Importance")
+        fig, ax = plt.subplots(figsize=(8, 5))
+        sns.barplot(x="Importance", y="Feature", data=fi_df, palette="coolwarm", ax=ax)
         ax.set_title("Feature Importance")
         st.pyplot(fig)
-
-# -----------------------------
-# TAB 3: PERFORMANCE
-# -----------------------------
-with tab3:
-    st.subheader("📈 Model Performance")
-
-    if df is not None:
-        features = df.drop(columns=["Salary"])  # <-- dynamically use all features
-        true_vals = df["Salary"]
-        preds = model.predict(features)
-
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.scatter(true_vals, preds, alpha=0.6, color="orange", edgecolors="k")
-        ax.set_xlabel("True Salary")
-        ax.set_ylabel("Predicted Salary")
-        ax.set_title("True vs Predicted Salaries")
-        st.pyplot(fig)
-
-        from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-        r2 = r2_score(true_vals, preds)
-        mae = mean_absolute_error(true_vals, preds)
-        rmse = mean_squared_error(true_vals, preds, squared=False)
-
-        st.metric("R² Score", f"{r2:.3f}")
-        st.metric("MAE", f"${mae:,.2f}")
-        st.metric("RMSE", f"${rmse:,.2f}")
-
-    else:
-        st.warning("Dataset not found. Upload `clean_salary_dataset.csv` to see performance.")
-
