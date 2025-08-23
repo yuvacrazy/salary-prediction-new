@@ -5,9 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
+import lightgbm as lgb
 
-# ---------------- Load Model ---------------- #
-model = joblib.load("salary_prediction_model.pkl")
+# Load model
+model = lgb.Booster(model_file="salary_prediction_model.txt")
+
+# For prediction
+preds = model.predict(X_new)
+
 
 # ---------------- Page Config ---------------- #
 st.set_page_config(page_title="💼 Salary Prediction Dashboard", page_icon="💰", layout="wide")
@@ -159,3 +164,4 @@ with tab3:
     fig2.patch.set_alpha(0)
     ax2.patch.set_alpha(0)
     st.pyplot(fig2)
+
